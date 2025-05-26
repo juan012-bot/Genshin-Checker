@@ -1,0 +1,160 @@
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
+
+const visions = ["", "anemo", "geo", "electro", "dendro", "hydro", "pyro", "cryo"];
+const weapons = ["", "sword", "claymore", "polearm", "bow", "catalyst"];
+const rarities = ["", "4", "5"];
+
+export default function GenshinChecker() {
+  const [username, setUsername] = useState("");
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [visionFilter, setVisionFilter] = useState("");
+  const [weaponFilter, setWeaponFilter] = useState("");
+  const [rarityFilter, setRarityFilter] = useState("");
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("https://api.genshin.dev/characters");
+      const characterIds = await response.json();
+
+      const filteredIds = characterIds.filter((id) =>
+        id.toLowerCase().includes(search.toLowerCase())
+      );
+
+      const characterData = await Promise.all(
+        filteredIds.map(async (id) => {
+          const res = await fetch(`https://api.genshin.dev/characters/${id}`);
+          const char = await res.json();
+          return {
+            id,
+            name: char.name || id,
+            vision: char.vision,
+            weapon: char.weapon,
+            rarity: char.rarity,
+            nation: char.nation,
+            constellation: char.constellation,
+            talents: char.skillTalents,
+            image: `https://api.genshin.dev/characters/${id}/icon`,
+            portrait: `https://api.genshin.dev/characters/${id}/gacha-splash`,
+            constellations: char.constellations,
+          };
+        })
+      );
+
+      const filteredData = characterData.filter((char) => {
+        return (
+          (!visionFilter || char.vision.toLowerCase() === visionFilter.toLowerCase()) &&
+          (!weaponFilter || char.weapon.toLowerCase() === weaponFilter.toLowerCase()) &&
+          (!rarityFilter || char.rarity.toString() === rarityFilter)
+        );
+      });
+
+      setData(filteredData);
+    } catch (err) {
+      console.error("Error al obtener los datos", err);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-6 bg-gradient-to-br from-indigo-900 to-purple-800 text-white rounded-2xl shadow-lg">
+      <h1 className="text-4xl font-extrabold text-center">Verificador de Personajes - Genshin Impact</h1>
+      <div className="flex gap-2 flex-wrap justify-center">
+        <Input
+          placeholder="Ingresa tu nombre de usuario"
+          className="text-black max-w-sm"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <Input
+          placeholder="Buscar personaje (ej: diluc)"
+          className="text-black max-w-sm"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        <select
+          className="text-black max-w-xs p-2 rounded"
+          value={visionFilter}
+          onChange={(e) => setVisionFilter(e.target.value)}
+        >
+          {visions.map((v) => (
+            <option key={v} value={v}>
+              {v === "" ? "Todas las Visiones" : v.charAt(0).toUpperCase() + v.slice(1)}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="text-black max-w-xs p-2 rounded"
+          value={weaponFilter}
+          onChange={(e) => setWeaponFilter(e.target.value)}
+        >
+          {weapons.map((w) => (
+            <option key={w} value={w}>
+              {w === "" ? "Todas las Armas" : w.charAt(0).toUpperCase() + w.slice(1)}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="text-black max-w-xs p-2 rounded"
+          value={rarityFilter}
+          onChange={(e) => setRarityFilter(e.target.value)}
+        >
+          {rarities.map((r) => (
+            <option key={r} value={r}>
+              {r === "" ? "Todas las Rarezas" : r + "⭐"}
+            </option>
+          ))}
+        </select>
+
+        <Button onClick={fetchData} disabled={loading} className="bg-yellow-500 hover:bg-yellow-600">
+          {loading ? "Cargando..." : "Buscar"}
+        </Button>
+      </div>
+
+      {data.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {data.map((char, index) => (
+            <Card key={index} className="bg-white text-black">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex flex-col items-center">
+                  <Image src={char.portrait} alt={char.name} width={250} height={400} className="rounded-lg mb-4" />
+                  <h2 className="text-2xl font-bold text-center">{char.name}</h2>
+                  <p className="text-sm">Visión: {char.vision}</p>
+                  <p className="text-sm">Arma: {char.weapon}</p>
+                  <p className="text-sm">Rareza: {char.rarity}⭐</p>
+                  <p className="text-sm">Región: {char.nation}</p>
+                  <p className="text-sm">Constelación: {char.constellation}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Talentos:</h3>
+                  <ul className="list-disc list-inside text-sm">
+                    {char.talents?.map((talent, i) => (
+                      <li key={i}>{talent.name} - {talent.unlock}</li>
+                    )) || <li>No disponibles</li>}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Constelaciones:</h3>
+                  <ul className="list-disc list-inside text-sm">
+                    {char.constellations?.map((c, i) => (
+                      <li key={i}>{c.name} - {c.unlock}</li>
+                    )) || <li>No disponibles</li>}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
